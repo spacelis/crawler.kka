@@ -19,7 +19,7 @@ from tcrawl import NoMoreTask
 from tcrawl import Task
 from tcrawl import TaskRequest
 from tcrawl import Record
-from tcrawl import HitRateLimit
+from tcrawl import RecoverableError
 from tcrawl import Resignition
 from tcrawl import Failure
 
@@ -63,6 +63,8 @@ class Controller(_Actor):
         """
         self._tasksource.stop()
         self._collector.stop()
+        self._tasksource.actor_stopped.wait()
+        self._collector.actor_stopped.wait()
 
     def on_receive(self, msg):
         """ Processing the received messages.
@@ -72,8 +74,8 @@ class Controller(_Actor):
 
         """
         return msg.match({
-            HitRateLimit.N(): self.handle_ratelimit,
             Resignition.N(): self.handle_resignition,
+            Failure.N(): self.handle_child_failure,
             '_': lambda msg: None
         })
 
@@ -86,6 +88,20 @@ class Controller(_Actor):
         """
         pass
 
+    def handle_child_failure(self, msg):
+        """ Handling failures from child actors.
+
+        :msg: @todo
+        :returns: @todo
+
+        """
+        if msg.sender.actor_class == 'Crawler':
+            msg.sender.stop()
+            self.refpool.remove(msg.sender)
+            self.refpool.append(
+                Crawler.start(self, self._tasksource, self._collector,
+                              *msg.conf))
+
     def handle_resignition(self, msg):
         """@todo: Docstring for handle_resignition.
 
@@ -93,7 +109,7 @@ class Controller(_Actor):
         :returns: @todo
 
         """
-        if isinstance(msg.sender, Crawler):
+        if msg.sender.actor_class == 'Crawler':
             self.refpool.remove(msg.sender)
             msg.sender.stop()
             if len(self.refpool):
@@ -151,7 +167,7 @@ class Crawler(_Actor):
 
     """ The crawler is responsible for receiving work and crawling"""
 
-    def __init__(self, controller, collector, tasksource, worker, initargs):
+    def __init__(self, controller, tasksource, collector, worker, initargs):
         """@todo: to be defined1. """
         super(Crawler, self).__init__()
         self._controller = controller
@@ -178,7 +194,7 @@ class Crawler(_Actor):
         """
         return msg.match({
             Task.N(): lambda msg: self.work(msg.payload),
-            NoMoreTask.N(): lambda msg: self.stop(),
+            NoMoreTask.N(): lambda msg: self.handle_nomoretask(),
             '_': lambda msg: None
         })
 
@@ -187,9 +203,9 @@ class Crawler(_Actor):
         :returns: @todo
 
         """
-        _logger('[%s:%s] Exit Successfully with no more tasks.',
-                self.__class__.__name__,
-                self.actor_urn)
+        _logger.info('[%s:%s] Exit Successfully with no more tasks.',
+                     self.__class__.__name__,
+                     self.actor_urn)
         self._controller.tell(Resignition(self, self._conf))
 
     def work(self, task):
@@ -204,21 +220,17 @@ class Crawler(_Actor):
             ret = self._worker.work_on(task)
             self._collector.tell(Record(self, ret))
             self._tasksource.tell(TaskRequest(self))
-        except Exception as e:  # pylint: disable=W0703
-            self._collector.tell(Record(self, e.message))
+        except RecoverableError as e:  # pylint: disable=W0703
+            self._controller.tell(Failure(self, e.message))
             self._performance['fails'] = self._performance.get('fails', 0) + 1
-            if self._performance['fails'] > 10:
-                self._controller.tell(Resignition(self))
-                self.stop()
-            else:
-                self.actor_ref.tell(Task(self, task))
+            self.actor_ref.tell(Task(self, task))
 
     def on_failure(self, exception_type, exception_value, traceback):
         """ Deal with thing unforeseen failure. """
-        _logger('[%s:%s] Attempt Fails: %s',
-                self.__class__.__name__,
-                self.actor_urn,
-                self._current_task)
+        _logger.error('[%s:%s] Attempt Fails: %s',
+                      self.__class__.__name__,
+                      self.actor_urn,
+                      self._current_task)
         _logger.exception(exception_value)
         self._controller.tell(Failure(self))
 
@@ -272,7 +284,7 @@ class Collector(_Actor):
         :returns: @todo
 
         """
-        _logger.error('[%s:%s] Failed!',
+        _logger.error('[%s:%s] Failed after: %s',
                       self.__class__.__name__,
                       self.actor_urn,
                       self._last_written)

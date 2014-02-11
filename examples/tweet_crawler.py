@@ -13,6 +13,7 @@ Description:
 from gevent import monkey
 monkey.patch_all()
 
+import yaml
 from tcrawl.actors import Controller
 import tweepy as tw
 
@@ -40,4 +41,10 @@ class Worker(object):
 
 
 if __name__ == '__main__':
-    con = Controller.start(Worker, [], fin, fout)
+
+    with open('.cred.yaml') as fin:
+        cred = yaml.load(fin)
+    output = Collector(sys.argv[2])
+    controller = Controller.start(Worker, cred,
+                                  CSVReader(sys.argv[1]), output)
+    controller.actor_stopped.wait()

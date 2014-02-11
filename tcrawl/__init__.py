@@ -20,6 +20,7 @@ class Message(dict):
     """ Messages class that used for type match. """
 
     _next_id = 0
+    __slots__ = ['sender', 'identifier', 'kind']
 
     def __init__(self, sender, identifier=None):
         """@todo: Docstring for __init__.
@@ -41,6 +42,7 @@ class Message(dict):
         else:
             self.identifier = Message._next_id
             Message._next_id += 1
+        self.kind = self.__class__.__name__
 
     def match(self, handler):
         """@todo: Docstring for match.
@@ -49,7 +51,7 @@ class Message(dict):
         :returns: @todo
 
         """
-        cname = self.__class__.__name__
+        cname = self.kind
         if cname in handler:
             return handler[cname](self)
         elif '_' in handler:
@@ -69,9 +71,9 @@ class Message(dict):
 class Task(Message):
 
     """ A message loaded with a task. """
+    __slots__ = ['payload']
 
     def __init__(self, sender, payload):
-        """@todo: to be defined1. """
         super(Task, self).__init__(sender)
         self.payload = payload
 
@@ -79,13 +81,9 @@ class Task(Message):
 class Resignition(Message):
 
     """ A statement of quiting the system. """
+    __slots__ = ['conf']
 
     def __init__(self, sender, conf):
-        """ init
-
-        :sender: @todo
-
-        """
         super(Resignition, self).__init__(sender)
         self.conf = conf
 
@@ -95,7 +93,6 @@ class Failure(Message):
     """ A notice of unhandled failure. """
 
     def __init__(self, sender):
-        """@todo: to be defined1. """
         super(Failure, self).__init__(sender)
 
 
@@ -104,7 +101,6 @@ class NoMoreTask(Message):
     """ No more task. """
 
     def __init__(self, sender):
-        """@todo: to be defined1. """
         super(NoMoreTask, self).__init__(sender)
 
 
@@ -113,11 +109,6 @@ class Done(Message):
     """A message saying a task is done."""
 
     def __init__(self, sender, task):
-        """
-
-        :sender: @todo
-
-        """
         super(Done, self).__init__(sender, task.identifier)
 
 
@@ -126,26 +117,15 @@ class TaskRequest(Message):
     """ A message requesting a new task. """
 
     def __init__(self, sender):
-        """
-
-        :sender: @todo
-
-        """
         super(TaskRequest, self).__init__(sender)
 
 
 class Record(Message):
 
     """ A message conveying the data to be written down. """
+    __slots__ = ['payload']
 
     def __init__(self, sender, payload):
-        """@todo: to be defined1.
-
-        :payload: @todo
-        :identifier: @todo
-        :sender: @todo
-
-        """
         super(Record, self).__init__(sender)
         self.payload = payload
 
@@ -153,28 +133,17 @@ class Record(Message):
 class Report(Message):
 
     """ A message indicating an unusual event. """
+    __slots__ = ['content']
 
     def __init__(self, sender, content):
-        """@todo: to be defined1.
-
-        :payload: @todo
-        :identifier: @todo
-        :sender: @todo
-
-        """
         super(Report, self).__init__(sender)
         self.content = content
 
 
-class HitRateLimit(Message):
+class RecoverableError(Exception):
 
-    """ Tell controller that the hitlimit is reached."""
+    """ Tell controller that there is a non-fatal error. """
 
-    def __init__(self, sender, nextwindow):
-        """
-
-        :nextwindow: @todo
-
-        """
-        super(HitRateLimit, self).__init__(sender)
-        self._nextwindow = nextwindow
+    def __init__(self, retry_in=10, *args, **kwargs):
+        super(RecoverableError, self).__init__(*args, **kwargs)
+        self.retry_in = retry_in

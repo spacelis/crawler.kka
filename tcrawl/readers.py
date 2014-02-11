@@ -27,5 +27,10 @@ class CSVReader(object):
         self._reader = csv.DictReader(open(filename))
 
     def __iter__(self):
+        """ Iterating over rows in the csv file. """
         for item in self._reader:
             yield item
+
+    def close(self):
+        """ Close. """
+        self._reader.close()

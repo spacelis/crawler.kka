@@ -17,12 +17,17 @@ import unittest
 from flexmock import flexmock
 
 from pykka import ActorRegistry
+from pykka.actor import ActorRef
 
 from tcrawl.actors import Collector
 from tcrawl.actors import TaskSource
 from tcrawl.actors import Crawler
 from tcrawl.writers import FileWriter
 from tcrawl import Record
+from tcrawl import Task
+from tcrawl import NoMoreTask
+from tcrawl import TaskRequest
+from tcrawl import Failure
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -79,30 +84,71 @@ class TestTaskSource(unittest.TestCase):  # pylint: disable=R0904
     def tearDown(self):
         pass
 
-    def test_request_task(self):
-        """ test request task. """
-        class MockWorker(object):
-            """ MockWorker"""
-            def work_on(self, w):
-                _logger.debug('work on [%s]', w)
-        (flexmock(MockWorker).should_call('__init__')
-         .once().with_args(('INITARGS', )))
-        (flexmock(MockWorker)
-         .should_receive('work_on').once().with_args(0).ordered())
-        (flexmock(MockWorker)
-         .should_receive('work_on').once().with_args(1).ordered())
-        (flexmock(MockWorker)
-         .should_receive('work_on').once().with_args(2).ordered())
+    def test_return_task(self):
+        """ test return task. """
+        ctl = flexmock(actor_ref=flexmock(tell=lambda x: None))
+        cr_ref = flexmock(tell=lambda x: None, kinds='cr')
+        cr = flexmock(actor_ref=cr_ref)
+        cr_ref.should_receive('tell').with_args(Task).at_least().times(3)
+        cr_ref.should_receive('tell').with_args(NoMoreTask).once()
+        ts = TaskSource.start(ctl, range(3))
+        ts.tell(TaskRequest(cr))
+        ts.tell(TaskRequest(cr))
+        ts.tell(TaskRequest(cr))
+        ts.tell(TaskRequest(cr))
+        ts.stop()
 
-        (flexmock(Collector).should_receive('write').times(3))
-        cl = Collector.start(self.controller,
-                             flexmock(write=lambda x: None,
-                                      close=lambda: None))
-        ts = TaskSource.start(self.controller, range(3))
-        cr = Crawler.start(self.controller, cl, ts, MockWorker, ('INITARGS', ))
-        cr.actor_stopped.wait(3)
+
+class TestCrawler(unittest.TestCase):
+
+    """Test case docstring."""
+
+    def setUp(self):
+        self.controller = flexmock(tell=lambda x: None)
+        self.tasksource = flexmock(tell=lambda x: None)
+        self.collector = flexmock(tell=lambda x: None)
+        self.initargs = (1, 2, 3)
+
+    def tearDown(self):
+        pass
+
+    def test_work(self):
+        class Worker:
+            def __init__(self, arg):
+                self.arg = arg
+
+            def work_on(self, task):
+                print task
+                return task
+
+        flexmock(Worker).should_call('work_on').once().with_args(1)
+        cr = Crawler.start(self.controller, self.tasksource, self.collector,
+                           Worker, self.initargs)
+        cr.tell(Task(None, 1))
+        cr.stop()
         ActorRegistry.stop_all()
 
+    def test_failwork(self):
+        class Worker:
+            def __init__(self, arg):
+                self.arg = arg
+
+            def work_on(self, task):
+                pass
+
+        ctl = (flexmock(tell=lambda x: None)
+               .should_receive('tell').once()
+               .with_args(Failure).mock())
+
+        (flexmock(Worker, work_on=lambda x: none)
+         .should_receive('work_on').once()
+         .with_args(1).and_raise(ValueError()))
+
+        cr = Crawler.start(ctl, self.tasksource, self.collector,
+                           Worker, self.initargs)
+        cr.tell(Task(None, 1))
+        cr.stop()
+        ActorRegistry.stop_all()
 
 if __name__ == '__main__':
     unittest.main()
