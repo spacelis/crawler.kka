@@ -10,15 +10,18 @@ Description:
 
 
 """
-import sys
+# pylint: disable=R0201,R0903,R0904,C0111
+import gevent
 from gevent import monkey
 monkey.patch_all()
+
+import sys
 import unittest
 from flexmock import flexmock
 
 from pykka import ActorRegistry
-from pykka.actor import ActorRef
 
+from tcrawl.actors import Controller
 from tcrawl.actors import Collector
 from tcrawl.actors import TaskSource
 from tcrawl.actors import Crawler
@@ -113,7 +116,7 @@ class TestCrawler(unittest.TestCase):
         pass
 
     def test_work(self):
-        class Worker:
+        class Worker(object):
             def __init__(self, arg):
                 self.arg = arg
 
@@ -129,7 +132,7 @@ class TestCrawler(unittest.TestCase):
         ActorRegistry.stop_all()
 
     def test_failwork(self):
-        class Worker:
+        class Worker(object):
             def __init__(self, arg):
                 self.arg = arg
 
@@ -140,7 +143,7 @@ class TestCrawler(unittest.TestCase):
                .should_receive('tell').once()
                .with_args(Failure).mock())
 
-        (flexmock(Worker, work_on=lambda x: none)
+        (flexmock(Worker, work_on=lambda x: None)
          .should_receive('work_on').once()
          .with_args(1).and_raise(ValueError()))
 
@@ -149,6 +152,49 @@ class TestCrawler(unittest.TestCase):
         cr.tell(Task(None, 1))
         cr.stop()
         ActorRegistry.stop_all()
+
+
+class TestController(unittest.TestCase):
+
+    """Test case docstring."""
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_run(self):
+        """ test running controller """
+        class Worker(object):
+            """ dummy """
+            def __init__(self, arg):
+                """ dummy """
+                self.arg = arg
+
+            def work_on(self, task):
+                """ dummy """
+                print task
+                gevent.sleep(1)
+                return task + 1
+
+        mocktastiter = flexmock()
+        (mocktastiter.should_receive('__iter__')
+         .and_yield(1, 2, 3))
+
+        flexmock(Worker).should_call('work_on').once().with_args(1)
+        flexmock(Worker).should_call('work_on').once().with_args(2)
+        flexmock(Worker).should_call('work_on').once().with_args(3)
+
+        mockwriter = flexmock()
+        mockwriter.should_receive('write').once().with_args(2)
+        mockwriter.should_receive('write').once().with_args(3)
+        mockwriter.should_receive('write').once().with_args(4)
+        mockwriter.should_receive('close').once()
+
+        ctl = Controller.start(Worker, (1, 2, 3),
+                               mocktastiter, mockwriter, poolsize=3)
+        ctl.actor_stopped.wait()
 
 if __name__ == '__main__':
     unittest.main()

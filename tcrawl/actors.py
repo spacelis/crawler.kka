@@ -51,20 +51,14 @@ class Controller(_Actor):
     def on_start(self):
         """ Start the whole setup actor system.
         """
-        self._tasksource = TaskSource.start(self._task_iter).start()
-        self._collector = Collector.start(self._output)
-        self.refpool = [Crawler.start(self._collector, self._tasksource,
+        self._tasksource = TaskSource.start(self.actor_ref, self._task_iter)
+        self._collector = Collector.start(self.actor_ref, self._output)
+        self.refpool = [Crawler.start(self.actor_ref,
+                                      self._tasksource,
+                                      self._collector,
                                       self._worker, args)
                         for _, args in zip(range(self._poolsize),
                                            cycle(self._worker_initargs))]
-
-    def on_stop(self):
-        """ Clearup when stop.
-        """
-        self._tasksource.stop()
-        self._collector.stop()
-        self._tasksource.actor_stopped.wait()
-        self._collector.actor_stopped.wait()
 
     def on_receive(self, msg):
         """ Processing the received messages.
@@ -95,7 +89,7 @@ class Controller(_Actor):
         :returns: @todo
 
         """
-        if msg.sender.actor_class == 'Crawler':
+        if msg.sender.actor_class.__name__ == 'Crawler':
             msg.sender.stop()
             self.refpool.remove(msg.sender)
             self.refpool.append(
@@ -109,10 +103,14 @@ class Controller(_Actor):
         :returns: @todo
 
         """
-        if msg.sender.actor_class == 'Crawler':
+        if msg.sender.actor_class.__name__ == 'Crawler':
             self.refpool.remove(msg.sender)
             msg.sender.stop()
             if len(self.refpool):
+                self._tasksource.stop()
+                self._collector.stop()
+                self._tasksource.actor_stopped.wait()
+                self._collector.actor_stopped.wait()
                 self.stop()
 
 
@@ -153,6 +151,13 @@ class TaskSource(_Actor):
             self._last_assigned = task
         except StopIteration:
             receiver.tell(NoMoreTask(self))
+
+    def on_stop(self):
+        """
+        :returns: @todo
+
+        """
+        print 'Stopped TaskSource'
 
     def on_failure(self, exception_type, exception_value, traceback):
         """ Deal with failure """
@@ -273,6 +278,7 @@ class Collector(_Actor):
         :returns: @todo
 
         """
+        print 'Collector stopping'
         self._writable.close()
 
     def on_failure(self, exception_type, exception_value, traceback):
