@@ -10,6 +10,7 @@ Description:
 
 
 """
+# pylint: disable=R0913
 from itertools import cycle
 #from pykka.actor import ThreadingActor as _Actor
 from pykka.gevent import GeventActor as _Actor
@@ -20,8 +21,10 @@ from tcrawl import Task
 from tcrawl import TaskRequest
 from tcrawl import Record
 from tcrawl import RecoverableError
+from tcrawl import IgnorableError
 from tcrawl import Resignition
-from tcrawl import Failure
+from tcrawl import NonFatalFailure
+from tcrawl import FatalFailure
 
 
 import logging
@@ -69,7 +72,8 @@ class Controller(_Actor):
         """
         return msg.match({
             Resignition.N(): self.handle_resignition,
-            Failure.N(): self.handle_child_failure,
+            NonFatalFailure.N(): self.handle_nonfatal_failure,
+            FatalFailure.N(): self.handle_fatal_failure,
             '_': lambda msg: None
         })
 
@@ -82,7 +86,7 @@ class Controller(_Actor):
         """
         pass
 
-    def handle_child_failure(self, msg):
+    def handle_nonfatal_failure(self, msg):
         """ Handling failures from child actors.
 
         :msg: @todo
@@ -90,7 +94,16 @@ class Controller(_Actor):
 
         """
         if msg.sender.actor_class.__name__ == 'Crawler':
-            msg.sender.stop()
+            pass
+
+    def handle_fatal_failure(self, msg):
+        """ Handling failures from child actors.
+
+        :msg: @todo
+        :returns: @todo
+
+        """
+        if msg.sender.actor_class.__name__ == 'Crawler':
             self.refpool.remove(msg.sender)
             self.refpool.append(
                 Crawler.start(self, self._tasksource, self._collector,
@@ -152,20 +165,13 @@ class TaskSource(_Actor):
         except StopIteration:
             receiver.tell(NoMoreTask(self))
 
-    def on_stop(self):
-        """
-        :returns: @todo
-
-        """
-        print 'Stopped TaskSource'
-
     def on_failure(self, exception_type, exception_value, traceback):
         """ Deal with failure """
-        _logger('[%s:%s] Last assigned: %s',
+        _logger('Last assigned: %s | %s (%s)',
+                self._last_assigned,
                 self.__class__.__name__,
-                self.actor_urn,
-                self._last_assigned)
-        self._controller.tell(Failure(self))
+                self.actor_urn)
+        self._controller.tell(FatalFailure(self, exception_value))
 
 
 class Crawler(_Actor):
@@ -208,7 +214,7 @@ class Crawler(_Actor):
         :returns: @todo
 
         """
-        _logger.info('[%s:%s] Exit Successfully with no more tasks.',
+        _logger.info('Exit Successfully with no more tasks. | %s (%s)',
                      self.__class__.__name__,
                      self.actor_urn)
         self._controller.tell(Resignition(self, self._conf))
@@ -226,18 +232,21 @@ class Crawler(_Actor):
             self._collector.tell(Record(self, ret))
             self._tasksource.tell(TaskRequest(self))
         except RecoverableError as e:  # pylint: disable=W0703
-            self._controller.tell(Failure(self, e.message))
+            self._controller.tell(NonFatalFailure(self, e))
             self._performance['fails'] = self._performance.get('fails', 0) + 1
             self.actor_ref.tell(Task(self, task))
+        except IgnorableError as e:
+            self._controller.tell(NonFatalFailure(self, e))
+            self._performance['fails'] = self._performance.get('fails', 0) + 1
 
     def on_failure(self, exception_type, exception_value, traceback):
         """ Deal with thing unforeseen failure. """
-        _logger.error('[%s:%s] Attempt Fails: %s',
+        _logger.error('Attempt Fails: %s | %s (%s)',
+                      self._current_task,
                       self.__class__.__name__,
-                      self.actor_urn,
-                      self._current_task)
+                      self.actor_urn)
         _logger.exception(exception_value)
-        self._controller.tell(Failure(self))
+        self._controller.tell(FatalFailure(self, exception_value))
 
 
 class Collector(_Actor):
@@ -278,7 +287,6 @@ class Collector(_Actor):
         :returns: @todo
 
         """
-        print 'Collector stopping'
         self._writable.close()
 
     def on_failure(self, exception_type, exception_value, traceback):
@@ -290,10 +298,10 @@ class Collector(_Actor):
         :returns: @todo
 
         """
-        _logger.error('[%s:%s] Failed after: %s',
+        _logger.error('Failed after writing: %s | %s (%s)',
+                      self._last_written,
                       self.__class__.__name__,
-                      self.actor_urn,
-                      self._last_written)
+                      self.actor_urn)
         _logger.exception(exception_value)
-        self._controller.tell(Failure(self))
         self._writable.close()
+        self._controller.tell(FatalFailure(self, exception_value))

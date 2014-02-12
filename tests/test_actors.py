@@ -30,7 +30,10 @@ from tcrawl import Record
 from tcrawl import Task
 from tcrawl import NoMoreTask
 from tcrawl import TaskRequest
-from tcrawl import Failure
+from tcrawl import NonFatalFailure
+from tcrawl import FatalFailure
+from tcrawl import RecoverableError
+from tcrawl import IgnorableError
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -141,7 +144,51 @@ class TestCrawler(unittest.TestCase):
 
         ctl = (flexmock(tell=lambda x: None)
                .should_receive('tell').once()
-               .with_args(Failure).mock())
+               .with_args(NonFatalFailure).mock())
+
+        (flexmock(Worker, work_on=lambda x: None)
+         .should_receive('work_on').once()
+         .with_args(1).and_raise(RecoverableError(ValueError())))
+
+        cr = Crawler.start(ctl, self.tasksource, self.collector,
+                           Worker, self.initargs)
+        cr.tell(Task(None, 1))
+        cr.stop()
+        ActorRegistry.stop_all()
+
+    def test_failwork2(self):
+        class Worker(object):
+            def __init__(self, arg):
+                self.arg = arg
+
+            def work_on(self, task):
+                pass
+
+        ctl = (flexmock(tell=lambda x: None)
+               .should_receive('tell').once()
+               .with_args(NonFatalFailure).mock())
+
+        (flexmock(Worker, work_on=lambda x: None)
+         .should_receive('work_on').once()
+         .with_args(1).and_raise(IgnorableError(ValueError())))
+
+        cr = Crawler.start(ctl, self.tasksource, self.collector,
+                           Worker, self.initargs)
+        cr.tell(Task(None, 1))
+        cr.stop()
+        ActorRegistry.stop_all()
+
+    def test_fatalfailwork(self):
+        class Worker(object):
+            def __init__(self, arg):
+                self.arg = arg
+
+            def work_on(self, task):
+                pass
+
+        ctl = (flexmock(tell=lambda x: None)
+               .should_receive('tell').once()
+               .with_args(FatalFailure).mock())
 
         (flexmock(Worker, work_on=lambda x: None)
          .should_receive('work_on').once()

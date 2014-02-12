@@ -88,14 +88,6 @@ class Resignition(Message):
         self.conf = conf
 
 
-class Failure(Message):
-
-    """ A notice of unhandled failure. """
-
-    def __init__(self, sender):
-        super(Failure, self).__init__(sender)
-
-
 class NoMoreTask(Message):
 
     """ No more task. """
@@ -140,10 +132,41 @@ class Report(Message):
         self.content = content
 
 
+class NonFatalFailure(Message):
+
+    """ A notice of unhandled failure. """
+    __slots__ = ['err']
+
+    def __init__(self, sender, err):
+        super(NonFatalFailure, self).__init__(sender)
+        self.err = err
+
+
+class FatalFailure(Message):
+
+    """ A notice that the crawler is hit by sever problems. """
+    __slots__ = ['err']
+
+    def __init__(self, sender, err):
+        """@todo: to be defined1. """
+        super(FatalFailure, self).__init__(sender)
+        self.err = err
+
+
 class RecoverableError(Exception):
 
     """ Tell controller that there is a non-fatal error. """
 
-    def __init__(self, retry_in=10, *args, **kwargs):
-        super(RecoverableError, self).__init__(*args, **kwargs)
+    def __init__(self, err, retry_in=10):
+        super(RecoverableError, self).__init__()
         self.retry_in = retry_in
+        self.err = err
+
+
+class IgnorableError(Exception):
+
+    """ Tell controller that there is a non-fatal error. """
+
+    def __init__(self, err):
+        super(IgnorableError, self).__init__()
+        self.err = err
