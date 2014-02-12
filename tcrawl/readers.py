@@ -24,7 +24,8 @@ class CSVReader(object):
 
         """
         self._filename = filename
-        self._reader = csv.DictReader(open(filename))
+        self._file = open(filename)
+        self._reader = csv.DictReader(self._file)
 
     def __iter__(self):
         """ Iterating over rows in the csv file. """
@@ -33,4 +34,4 @@ class CSVReader(object):
 
     def close(self):
         """ Close. """
-        self._reader.close()
+        self._file.close()
