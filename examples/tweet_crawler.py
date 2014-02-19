@@ -18,11 +18,11 @@ import yaml
 import time
 
 import tweepy as tw
-from tcrawl.actors import Controller
-from tcrawl.readers import CSVReader
-from tcrawl.writers import FileWriter
-from tcrawl import IgnorableError
-from tcrawl import RecoverableError
+from crawler.actors import Controller
+from crawler.readers import CSVReader
+from crawler.writers import FileWriter
+from crawler import IgnorableError
+from crawler import RecoverableError
 
 from tcrawl.api_patch import patch as __patch_status
 __patch_status()
@@ -62,7 +62,7 @@ class Worker(object):
             return ret._raw
         except tw.TweepError as e:
             if e.response.status == 429:
-                nxwin = e.response.getheader('X-Rate-Limit-Reset')
+                nxwin = float(e.response.getheader('X-Rate-Limit-Reset'))
                 retry_in = time.time() - nxwin + 5
                 raise RecoverableError(e, retry_in)
             raise IgnorableError(e)
