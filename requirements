@@ -4,9 +4,3 @@ pykka
 requests
 grequests
 greenlet
-
-nose
-pytest
-pytest-capturelog
-pytest-cov
-flexmock

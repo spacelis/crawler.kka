@@ -1,0 +1,5 @@
+nose
+pytest
+pytest-capturelog
+pytest-cov
+flexmock
