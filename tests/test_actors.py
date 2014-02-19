@@ -21,19 +21,19 @@ from flexmock import flexmock
 
 from pykka import ActorRegistry
 
-from tcrawl.actors import Controller
-from tcrawl.actors import Collector
-from tcrawl.actors import TaskSource
-from tcrawl.actors import Crawler
-from tcrawl.writers import FileWriter
-from tcrawl import Record
-from tcrawl import Task
-from tcrawl import NoMoreTask
-from tcrawl import TaskRequest
-from tcrawl import NonFatalFailure
-from tcrawl import FatalFailure
-from tcrawl import RecoverableError
-from tcrawl import IgnorableError
+from crawler.actors import Controller
+from crawler.actors import Collector
+from crawler.actors import TaskSource
+from crawler.actors import Crawler
+from crawler.writers import FileWriter
+from crawler import Record
+from crawler import Task
+from crawler import NoMoreTask
+from crawler import TaskRequest
+from crawler import NonFatalFailure
+from crawler import Resignition
+from crawler import RecoverableError
+from crawler import IgnorableError
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -188,7 +188,7 @@ class TestCrawler(unittest.TestCase):
 
         ctl = (flexmock(tell=lambda x: None)
                .should_receive('tell').once()
-               .with_args(FatalFailure).mock())
+               .with_args(Resignition).mock())
 
         (flexmock(Worker, work_on=lambda x: None)
          .should_receive('work_on').once()

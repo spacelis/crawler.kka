@@ -87,16 +87,6 @@ class Task(Message):
         self.payload = payload
 
 
-class Resignition(Message):
-
-    """ A statement of quiting the system. """
-    __slots__ = ['conf']
-
-    def __init__(self, sender, conf):
-        super(Resignition, self).__init__(sender)
-        self.conf = conf
-
-
 class NoMoreTask(Message):
 
     """ No more task. """
@@ -159,23 +149,37 @@ class NonFatalFailure(Message):
                             self.err)
 
 
-class FatalFailure(Message):
+class Resignition(Message):
 
     """ A notice that the crawler is hit by sever problems. """
-    __slots__ = ['err']
+    __slots__ = ['err', 'stack', 'conf']
 
-    def __init__(self, sender, err):
+    def __init__(self, sender, err, stack, conf):
         """@todo: to be defined1. """
-        super(FatalFailure, self).__init__(sender)
+        super(Resignition, self).__init__(sender)
         self.err = err
+        self.stack = stack
+        self.conf = conf
 
     def __str__(self):
         """@todo: Docstring for __str__.
         :returns: @todo
 
         """
-        return "%s : %s" % (super(FatalFailure, self),
-                            self.err)
+        return "%s: %s\n%s\n%s" % (super(Resignition, self).__str__(),
+                                   self.conf, self.err, self.stack)
+
+
+class Retire(Message):
+
+    """ A notice that the crawler is hit by sever problems. """
+
+    def __str__(self):
+        """@todo: Docstring for __str__.
+        :returns: @todo
+
+        """
+        return "Retired: %s" % (self.sender.actor_urn)
 
 
 class RecoverableError(Exception):

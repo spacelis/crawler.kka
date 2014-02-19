@@ -26,7 +26,7 @@ class TestStack(unittest.TestCase):
 
     def test_stack(self):
         """ test_stack """
-        from tcrawl.api_patch import stack
+        from crawler.api_patch import stack
 
         class ATestClase(object):  # pylint: disable=R0903
 
@@ -75,7 +75,7 @@ class TestStack(unittest.TestCase):
 
         """
         from tweepy.models import Status
-        from tcrawl.tweepy_patch import patch
+        from crawler.tweepy_patch import patch
         patch()
         s = Status.parse('test_api', {'a': 1, 'b': 2})
         # pylint: disable=E1101,W0212

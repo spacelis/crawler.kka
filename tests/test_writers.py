@@ -14,8 +14,8 @@ import sys
 from flexmock import flexmock
 import unittest
 
-from tcrawl.writers import FileWriter
-from tcrawl.writers import JsonEncoder
+from crawler.writers import FileWriter
+from crawler.writers import JsonEncoder
 
 
 class TestFileWriter(unittest.TestCase):

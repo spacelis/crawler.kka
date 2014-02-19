@@ -18,15 +18,15 @@ from pykka.gevent import GeventActor as _Actor
 from gevent.event import Event as _Event
 from gevent import sleep
 
-from tcrawl import NoMoreTask
-from tcrawl import Task
-from tcrawl import TaskRequest
-from tcrawl import Record
-from tcrawl import RecoverableError
-from tcrawl import IgnorableError
-from tcrawl import Resignition
-from tcrawl import NonFatalFailure
-from tcrawl import FatalFailure
+from crawler import NoMoreTask
+from crawler import Task
+from crawler import TaskRequest
+from crawler import Record
+from crawler import RecoverableError
+from crawler import IgnorableError
+from crawler import Resignition
+from crawler import NonFatalFailure
+from crawler import Retire
 
 
 import logging
@@ -76,7 +76,7 @@ class Controller(_Actor):
         return msg.match({
             Resignition.N(): self.handle_resignition,
             NonFatalFailure.N(): self.handle_nonfatal_failure,
-            FatalFailure.N(): self.handle_fatal_failure,
+            Retire.N(): self.handle_retire,
             '_': lambda msg: None
         })
 
@@ -91,7 +91,7 @@ class Controller(_Actor):
             _logger.warn(msg)
             self.manager[msg.sender.actor_urn] += 1
 
-    def handle_fatal_failure(self, msg):
+    def handle_resignition(self, msg):
         """ Handling failures from child actors.
 
         :msg: @todo
@@ -102,10 +102,12 @@ class Controller(_Actor):
             self.refpool.remove(msg.sender)
             _logger.error(msg)
             self.refpool.append(
-                Crawler.start(self, self._tasksource, self._collector,
+                Crawler.start(self,
+                              self._tasksource,
+                              self._collector,
                               *msg.conf))
 
-    def handle_resignition(self, msg):
+    def handle_retire(self, msg):
         """@todo: Docstring for handle_resignition.
 
         :msg: @todo
@@ -169,7 +171,8 @@ class TaskSource(_Actor):
                 self._last_assigned,
                 self.__class__.__name__,
                 self.actor_urn)
-        self._controller.tell(FatalFailure(self, exception_value))
+        self._controller.tell(Resignition(self, exception_value,
+                                          traceback, (None, None)))
 
 
 class Crawler(_Actor):
@@ -215,7 +218,7 @@ class Crawler(_Actor):
 
         """
         _logger.info('Crawler retired [%s]', self.actor_urn)
-        self._controller.tell(Resignition(self, self._conf))
+        self._controller.tell(Retire(self))
 
     def work(self, task):
         """ Crawl the task.
@@ -250,7 +253,8 @@ class Crawler(_Actor):
                       self._current_task,
                       self.actor_urn)
         _logger.exception(exception_value)
-        self._controller.tell(FatalFailure(self, exception_value))
+        self._controller.tell(Resignition(self, exception_value,
+                                          traceback, self._conf))
 
 
 class Collector(_Actor):
@@ -307,4 +311,5 @@ class Collector(_Actor):
                       self.actor_urn)
         _logger.exception(exception_value)
         self._writable.close()
-        self._controller.tell(FatalFailure(self, exception_value))
+        self._controller.tell(Resignition(self, exception_value,
+                                          traceback, (None, None)))

@@ -14,11 +14,11 @@ import sys
 import unittest
 from pykka import registry
 from flexmock import flexmock
-from tcrawl import Message
-from tcrawl import Record
-from tcrawl import TaskRequest
-from tcrawl.actors import Collector
-from tcrawl.writers import FileWriter
+from crawler import Message
+from crawler import Record
+from crawler import TaskRequest
+from crawler.actors import Collector
+from crawler.writers import FileWriter
 
 import logging
 logging.getLogger('pykka').setLevel(logging.DEBUG)

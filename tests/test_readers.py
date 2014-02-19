@@ -8,7 +8,7 @@ Email: Wen.Li@tudelft.nl
 GitHub: http://github.com/spacelis
 """
 import sys
-from tcrawl.readers import CSVReader
+from crawler.readers import CSVReader
 from StringIO import StringIO
 from textwrap import dedent
 
