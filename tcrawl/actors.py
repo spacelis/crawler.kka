@@ -12,9 +12,11 @@ Description:
 """
 # pylint: disable=R0913
 from itertools import cycle
+from collections import defaultdict
 #from pykka.actor import ThreadingActor as _Actor
 from pykka.gevent import GeventActor as _Actor
 from gevent.event import Event as _Event
+from gevent import sleep
 
 from tcrawl import NoMoreTask
 from tcrawl import Task
@@ -50,6 +52,7 @@ class Controller(_Actor):
         self._task_iter = task_iter
         self._poolsize = poolsize
         self.refpool = []
+        self.manager = defaultdict(int)
 
     def on_start(self):
         """ Start the whole setup actor system.
@@ -77,15 +80,6 @@ class Controller(_Actor):
             '_': lambda msg: None
         })
 
-    def handle_ratelimit(self, msg):
-        """@todo: Docstring for handle_ratelimit.
-
-        :arg1: @todo
-        :returns: @todo
-
-        """
-        pass
-
     def handle_nonfatal_failure(self, msg):
         """ Handling failures from child actors.
 
@@ -94,7 +88,8 @@ class Controller(_Actor):
 
         """
         if msg.sender.actor_class.__name__ == 'Crawler':
-            pass
+            _logger.warn(msg)
+            self.manager[msg.sender.actor_urn] += 1
 
     def handle_fatal_failure(self, msg):
         """ Handling failures from child actors.
@@ -105,6 +100,7 @@ class Controller(_Actor):
         """
         if msg.sender.actor_class.__name__ == 'Crawler':
             self.refpool.remove(msg.sender)
+            _logger.error(msg)
             self.refpool.append(
                 Crawler.start(self, self._tasksource, self._collector,
                               *msg.conf))
@@ -118,8 +114,9 @@ class Controller(_Actor):
         """
         if msg.sender.actor_class.__name__ == 'Crawler':
             self.refpool.remove(msg.sender)
+            _logger.info('%s Crawler left', len(self.refpool))
             msg.sender.stop()
-            if len(self.refpool):
+            if len(self.refpool) == 0:
                 self._tasksource.stop()
                 self._collector.stop()
                 self._tasksource.actor_stopped.wait()
@@ -161,6 +158,7 @@ class TaskSource(_Actor):
         try:
             task = self._taskset.next()
             receiver.tell(Task(self, task))
+            _logger.debug('Send out %s', task)
             self._last_assigned = task
         except StopIteration:
             receiver.tell(NoMoreTask(self))
@@ -184,7 +182,7 @@ class Crawler(_Actor):
         self._controller = controller
         self._collector = collector
         self._tasksource = tasksource
-        self._worker = worker(initargs)
+        self._worker = None
         self._performance = dict()
         self._conf = (worker, initargs)
         self._current_task = None
@@ -194,6 +192,8 @@ class Crawler(_Actor):
         :returns: @todo
 
         """
+        _logger.info('Crawler started [%s]', self.actor_urn)
+        self._worker = self._conf[0](self._conf[1])
         self._tasksource.tell(TaskRequest(self))
 
     def on_receive(self, msg):
@@ -214,9 +214,7 @@ class Crawler(_Actor):
         :returns: @todo
 
         """
-        _logger.info('Exit Successfully with no more tasks. | %s (%s)',
-                     self.__class__.__name__,
-                     self.actor_urn)
+        _logger.info('Crawler retired [%s]', self.actor_urn)
         self._controller.tell(Resignition(self, self._conf))
 
     def work(self, task):
@@ -226,24 +224,30 @@ class Crawler(_Actor):
         :returns: @todo
 
         """
+        _logger.debug('Receive task: %s', task)
         try:
             self._current_task = task
             ret = self._worker.work_on(task)
             self._collector.tell(Record(self, ret))
             self._tasksource.tell(TaskRequest(self))
+            _logger.debug('Succeeded task: %s', task)
         except RecoverableError as e:  # pylint: disable=W0703
+            _logger.warn('RecoverableError %s', e)
             self._controller.tell(NonFatalFailure(self, e))
             self._performance['fails'] = self._performance.get('fails', 0) + 1
+            sleep(e.retry_in)
             self.actor_ref.tell(Task(self, task))
         except IgnorableError as e:
             self._controller.tell(NonFatalFailure(self, e))
             self._performance['fails'] = self._performance.get('fails', 0) + 1
+            _logger.warn('IgnorableError %s', e)
+            _logger.exception(e.err)
+            self._tasksource.tell(TaskRequest(self))
 
     def on_failure(self, exception_type, exception_value, traceback):
         """ Deal with thing unforeseen failure. """
-        _logger.error('Attempt Fails: %s | %s (%s)',
+        _logger.error('Crawler Failed: %s [%s]',
                       self._current_task,
-                      self.__class__.__name__,
                       self.actor_urn)
         _logger.exception(exception_value)
         self._controller.tell(FatalFailure(self, exception_value))
@@ -298,9 +302,8 @@ class Collector(_Actor):
         :returns: @todo
 
         """
-        _logger.error('Failed after writing: %s | %s (%s)',
+        _logger.error('Write Failed: %s [%s]',
                       self._last_written,
-                      self.__class__.__name__,
                       self.actor_urn)
         _logger.exception(exception_value)
         self._writable.close()

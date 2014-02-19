@@ -67,6 +67,15 @@ class Message(dict):
         """
         return cls.__name__
 
+    def __str__(self):
+        """ Return a string
+        :returns: @todo
+
+        """
+        return "%s from %s [%s]" % (self.N(),
+                                    self.sender.actor_class.__name__,
+                                    self.sender.actor_urn)
+
 
 class Task(Message):
 
@@ -141,6 +150,14 @@ class NonFatalFailure(Message):
         super(NonFatalFailure, self).__init__(sender)
         self.err = err
 
+    def __str__(self):
+        """@todo: Docstring for __str__.
+        :returns: @todo
+
+        """
+        return "%s : %s" % (super(NonFatalFailure, self).__str__(),
+                            self.err)
+
 
 class FatalFailure(Message):
 
@@ -152,21 +169,45 @@ class FatalFailure(Message):
         super(FatalFailure, self).__init__(sender)
         self.err = err
 
+    def __str__(self):
+        """@todo: Docstring for __str__.
+        :returns: @todo
+
+        """
+        return "%s : %s" % (super(FatalFailure, self),
+                            self.err)
+
 
 class RecoverableError(Exception):
 
     """ Tell controller that there is a non-fatal error. """
+    __slots__ = ['err', 'retry_in']
 
     def __init__(self, err, retry_in=10):
         super(RecoverableError, self).__init__()
         self.retry_in = retry_in
         self.err = err
 
+    def __str__(self):
+        """@todo: Docstring for __str__.
+        :returns: @todo
+
+        """
+        return str(self.err)
+
 
 class IgnorableError(Exception):
 
     """ Tell controller that there is a non-fatal error. """
+    __slots__ = ['err']
 
     def __init__(self, err):
         super(IgnorableError, self).__init__()
         self.err = err
+
+    def __str__(self):
+        """@todo: Docstring for __str__.
+        :returns: @todo
+
+        """
+        return str(self.err)
