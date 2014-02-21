@@ -197,7 +197,7 @@ class RecoverableError(Exception):
         :returns: @todo
 
         """
-        return str(self.err)
+        return "Retry in %s because %s" % (self.retry_in, str(self.err))
 
 
 class IgnorableError(Exception):
