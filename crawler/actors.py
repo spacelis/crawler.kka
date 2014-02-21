@@ -102,7 +102,7 @@ class Controller(_Actor):
             self.refpool.remove(msg.sender)
             _logger.error(msg)
             self.refpool.append(
-                Crawler.start(self,
+                Crawler.start(self.actor_ref,
                               self._tasksource,
                               self._collector,
                               *msg.conf))
