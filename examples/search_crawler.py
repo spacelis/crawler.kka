@@ -10,8 +10,8 @@ Description:
     Retreiving tweets by ids.
 
 """
-from gevent import monkey
-monkey.patch_all()
+#from gevent import monkey
+#monkey.patch_all()
 
 import sys
 import yaml
