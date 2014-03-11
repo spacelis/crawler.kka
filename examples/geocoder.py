@@ -16,6 +16,8 @@ monkey.patch_all()
 import sys
 import re
 import requests
+import json
+from pyproj import Proj
 
 
 from crawler.actors import Controller
@@ -25,7 +27,16 @@ from crawler.writers import FileWriter
 import logging
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
+
 COORD = re.compile(r'<gml:pos dimension="2">([\d.]+ [\d.]+)</gml:pos>')
+RESTURL = 'http://geodata.nationaalgeoregister.nl/geocoder/Geocoder'
+PROJ = Proj(init='EPSG:28992')
+
+
+def parsecoord(text):
+    """ Parse coordinates from the returns. """
+    x, y = [float(i) for i in COORD.search(text).group(1).split(' ')]
+    return ','.join([str(i) for i in PROJ(x, y, inverse=True)][::-1])
 
 
 class Worker(object):
@@ -52,14 +63,10 @@ class Worker(object):
              else str(x['Huisnummer Melding']))
         q = {'zoekterm': ' '.join([s, n, 'Rotterdam'])}
         try:
-            ret = requests.get(
-                'http://geodata.nationaalgeoregister.nl/geocoder/Geocoder',
-                params=q
-            )
-
-            return ','.join([s, n] +
-                            COORD.search(ret.text).group(1).split(' '))
+            ret = requests.get(RESTURL, params=q)
+            return ','.join([s, n, parsecoord(ret.text)])
         except Exception as e:
+            logging.exception(e)
             print ','.join([s, n])
             return ''
 
