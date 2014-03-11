@@ -29,6 +29,7 @@ __patch_status()
 
 import logging
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("requests").setLevel(logging.WARNING)
 _logger = logging.getLogger(__name__)
 
 
