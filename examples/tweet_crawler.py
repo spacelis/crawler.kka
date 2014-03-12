@@ -62,12 +62,16 @@ class Worker(object):
             _logger.debug(ret)
             return ret._raw
         except tw.TweepError as e:
-            if e.response.status == 429:
-                nxwin = float(e.response.getheader('X-Rate-Limit-Reset'))
-                retry_in = nxwin + 5 - time.time()
-                raise RecoverableError(e, retry_in)
-            _logger.warn('Failed at %s', param)
-            raise IgnorableError(e)
+            if e.response:
+                if e.response.status == 429:
+                    nxwin = float(e.response.getheader('X-Rate-Limit-Reset'))
+                    retry_in = nxwin + 5 - time.time()
+                    raise RecoverableError(e, retry_in)
+                elif e.message[0]['code'] in [63, 34, 179]:
+                    # deleted or protected tweets
+                    raise IgnorableError(e)
+            _logger.error('Failed at %s', param)
+            raise e
 
 
 def console():
