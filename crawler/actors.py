@@ -88,7 +88,7 @@ class Controller(_Actor):
 
         """
         if msg.sender.actor_class.__name__ == 'Crawler':
-            _logger.warn(msg)
+            _logger.debug(msg)
             self.manager[msg.sender.actor_urn] += 1
 
     def handle_resignition(self, msg):
@@ -100,7 +100,7 @@ class Controller(_Actor):
         """
         if msg.sender.actor_class.__name__ == 'Crawler':
             self.refpool.remove(msg.sender)
-            _logger.error(msg)
+            _logger.debug(msg)
             self.refpool.append(
                 Crawler.start(self.actor_ref,
                               self._tasksource,
@@ -241,10 +241,9 @@ class Crawler(_Actor):
             sleep(e.retry_in)
             self.actor_ref.tell(Task(self, task))
         except IgnorableError as e:
+            _logger.debug('IgnorableError %s', e)
             self._controller.tell(NonFatalFailure(self, e))
             self._performance['fails'] = self._performance.get('fails', 0) + 1
-            _logger.warn('IgnorableError %s', e)
-            _logger.exception(e.err)
             self._tasksource.tell(TaskRequest(self))
 
     def on_failure(self, exception_type, exception_value, traceback):
