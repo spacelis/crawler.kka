@@ -60,18 +60,25 @@ class Worker(object):
         """
         if ('Straatnaam' not in x) and ('address' in x):
             q = {'zoekterm': x['address']}
+            try:
+                ret = requests.get(RESTURL, params=q)
+                return ','.join([s, n, parsecoord(ret.text)])
+            except Exception as e:
+                logging.exception(e)
+                print x['address']
+                return ''
         else:
             s = x['Straatnaam']
             n = ('' if x['Huisnummer Melding'] == '0'
                  else str(x['Huisnummer Melding']))
             q = {'zoekterm': ' '.join([s, n, 'Rotterdam'])}
-        try:
-            ret = requests.get(RESTURL, params=q)
-            return ','.join([s, n, parsecoord(ret.text)])
-        except Exception as e:
-            logging.exception(e)
-            print ','.join([s, n])
-            return ''
+            try:
+                ret = requests.get(RESTURL, params=q)
+                return ','.join([s, n, parsecoord(ret.text)])
+            except Exception as e:
+                logging.exception(e)
+                print ','.join([s, n])
+                return ''
 
 
 def test():
