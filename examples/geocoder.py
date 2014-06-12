@@ -58,10 +58,13 @@ class Worker(object):
         :returns: The coordinates.
 
         """
-        s = x['Straatnaam']
-        n = ('' if x['Huisnummer Melding'] == '0'
-             else str(x['Huisnummer Melding']))
-        q = {'zoekterm': ' '.join([s, n, 'Rotterdam'])}
+        if ('Straatnaam' not in x) and ('address' in x):
+            q = {'zoekterm': x['address']}
+        else:
+            s = x['Straatnaam']
+            n = ('' if x['Huisnummer Melding'] == '0'
+                 else str(x['Huisnummer Melding']))
+            q = {'zoekterm': ' '.join([s, n, 'Rotterdam'])}
         try:
             ret = requests.get(RESTURL, params=q)
             return ','.join([s, n, parsecoord(ret.text)])
