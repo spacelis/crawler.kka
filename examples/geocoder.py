@@ -16,7 +16,6 @@ monkey.patch_all()
 import sys
 import re
 import requests
-import json
 from pyproj import Proj
 
 
@@ -62,10 +61,10 @@ class Worker(object):
             q = {'zoekterm': x['address']}
             try:
                 ret = requests.get(RESTURL, params=q)
-                return ','.join([s, n, parsecoord(ret.text)])
+                return ','.join([x['Meldings nummer'], parsecoord(ret.text)])
             except Exception as e:
                 logging.exception(e)
-                print x['address']
+                print '%s,"%s"' % (x['Meldings nummer'], x['address'])
                 return ''
         else:
             s = x['Straatnaam']
@@ -88,6 +87,8 @@ def test():
                      'Huisnummer Melding': '44'})
     print w.work_on({'Straatnaam': 'FEIJENOORDHAVEN',
                      'Huisnummer Melding': '0'})
+    print w.work_on({'Meldings nummer': '1',
+                     'address': 'Science Park Amsterdam'})
 
 
 def console():
@@ -107,4 +108,4 @@ def console():
 
 if __name__ == '__main__':
     console()
-    #test()
+    # test()
