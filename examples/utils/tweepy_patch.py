@@ -53,7 +53,7 @@ class ResourceKeeper(object):
         """ Init resource keeper.
 
         :limit: A positive number means finite resource
-                wile 0 or negative means infinite.
+                while 0 or negative means infinite.
 
         """
         self.limit = limit
