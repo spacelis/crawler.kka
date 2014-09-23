@@ -61,4 +61,4 @@ An full example can be found in ```examples/tweet_crawler.py```.
 
 ## License
 
-MIT LICENSE
+MIT LICENSE 2014 spacelis
