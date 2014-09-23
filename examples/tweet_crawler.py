@@ -7,9 +7,29 @@ Author: SpaceLis
 Email: Wen.Li@tudelft.nl
 GitHub: http://github.com/spacelis
 Description:
-    Retreiving tweets by ids.
+    This is an example of actor based crawler system.
+    To run this script you need to have both pairs of key and secret for an application registered on Twitter and a user authoring in the application.
+    Basically, you register an application on Twitter and get the access_token for yourself in the application.
+    Check out http://dev.twitter.com
+    Then the tokens should be put in a file called `creds.yaml' which is a yaml format file for all the keys.
+    It should looks like:
 
+```
+-
+        consumer_key: xxxx
+        consumer_secret: yyyy
+        access_token_key: 9999999-zzzz
+        access_token_secret: mmmm
+```
+    Make sure the creds.yaml is in the same directory where you run your script (not where the script is stored).
+    Usage:
+        tweet_crawler.py <input> <output>
+
+    The input is a csv file with one colmn called tid which is the tweet id.
+    The output will be a file with each line a json string representing a tweet.
 """
+
+
 from gevent import monkey
 monkey.patch_all()
 
@@ -38,10 +58,9 @@ class Worker(object):
     """ A worker. """
 
     def __init__(self, cred):
-        """@todo: to be defined1.
+        """ Init the worker with the keys.
 
-        :args: @todo
-
+        :cred: an dictionary providing both key-secret pairs for an application and an authorized user.
         """
         self._oauthhl = tw.OAuthHandler(cred['consumer_key'],
                                         cred['consumer_secret'])
@@ -51,10 +70,10 @@ class Worker(object):
         assert self._client.verify_credentials(), cred
 
     def work_on(self, param):
-        """@todo: Docstring for work_on.
+        """ Request a tweet from Twitter with an tweet id.
 
-        :tid: @todo
-        :returns: @todo
+        :param: an dictionary have a field called 'tid' and its value is a tweet id in string.
+        :returns: a json string returned by Twitter
 
         """
         try:
@@ -75,17 +94,15 @@ class Worker(object):
 
 
 def console():
-    """ running in console
-    :returns: @todo
-
+    """ Handling argumant parsing when running from a console.
     """
     if len(sys.argv) != 3:
         print >> sys.stderr, 'Usage: tweet_crawler.py <input> <output>'
         sys.exit()
 
-    with open('cred.yaml') as fin:
-        cred = yaml.load(fin)
-    controller = Controller.start(Worker, cred,
+    with open('creds.yaml') as fin:
+        creds = yaml.load(fin)
+    controller = Controller.start(Worker, creds,
                                   CSVReader(sys.argv[1]),
                                   FileWriter(sys.argv[2]))
     controller.actor_stopped.wait()
