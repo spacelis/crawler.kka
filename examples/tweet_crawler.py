@@ -44,8 +44,8 @@ from crawler.writers import FileWriter
 from crawler import IgnorableError
 from crawler import RecoverableError
 
-from example.util.tweepy_patch import patchcrawler as __patch_status
-__patch_status()
+from examples.utils.tweepy_patch import patchStatus
+patchStatus()
 
 import logging
 logging.basicConfig(level=logging.INFO)

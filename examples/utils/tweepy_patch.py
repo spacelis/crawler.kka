@@ -35,7 +35,7 @@ def preserve_origin(_, mockee, api, json):
     return s
 
 
-def patch():
+def patchStatus():
     """ Patching the tweepy Status objects to make it store the raw json.
     """
     if 'tweepy.models' in sys.modules:
