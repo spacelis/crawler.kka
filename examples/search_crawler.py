@@ -24,9 +24,9 @@ import tweepy as tw
 #from crawler import IgnorableError
 #from crawler import RecoverableError
 
-from crawler.utils.tweepy_patch import patch as __patch_status
 from crawler.utils.tweepy_patch import iter_scoll
-__patch_status()
+from examples.utils.tweepy_patch import patchStatus
+patchStatus()
 
 import logging
 logging.basicConfig(level=logging.INFO)
